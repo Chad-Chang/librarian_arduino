@@ -92,13 +92,11 @@ bool packet = false, sent = false;
 bool robot_op = false, grab_begin = false; // 그리핑 처음에 성공하고, 나중에도 성공하는지 확인 
 bool st_matlab = false, st_matlab2 = false, st_matlab3 = false;
 
-int servo_ang_max = 120, servo_ang_min = 100; // max : 서보 최대 회전, min : 커질수록 오므라듦
+int servo_ang_max = 110, servo_ang_min = 100; // max : 서보 최대 회전, min : 커질수록 오므라듦
 bool grabed = false; // 통신을 통한 수동 그리핑 테스트
 int ball_mm = 0, depth = 0; 
 int depth_desire = 310; // 내가 원하는 만큼의 이격거리
-bool forward = false;
 bool ball_screw_only = false;
-bool servo_only_open = true;
 bool sound_on = false;
 
 
@@ -251,78 +249,81 @@ void robot_arm(){
   if (ball_screw_only){
     /* (Ball screw) position control */
     CMotor_B.MoveEncoder_mm(ball_mm); // ball_mm로 움직임. (절대좌표) 범위 0~148
-    
     /* (Ball screw) motor output */
     digitalWrite(motorDirB, CMotor_B.dir);
     analogWrite(motorPwmB, CMotor_B.pwm);
     if(CMotor_B.arrival) {ball_screw_only = false;}
   }
 
-  if(servo_only_open){
-    cservo.grab();  // 얼마나 벌릴지 cservo.target에 넣어주기 default 0
-    cservo.target = 50; 
-    cservo.gripperOpen();
-    if(cservo.isOpen)servo_only_open = false;
-  }
-  
   if(robot_op){ // 로봇팔 구동중
     Last_signal = "0";
     if(robot.status == bscrew_mode){  // 시작신호
-      cservo.grab();  // 얼마나 벌릴지 cservo.target에 넣어주기 default 0
-      cservo.target = 50; 
-      cservo.gripperOpen();
       robot.robot_run(packet,jnt_ang);
-      if(!forward){ // 처음에만 접근할때 볼스크류를 작동
-        if(depth > depth_desire){    
+      cservo.grab();  // 얼마나 벌릴지 cservo.target에 넣어주기 default 0
+      cservo.target = 60; 
+      cservo.gripperOpen();
+      if(robot.status  == bscrew_mode){ // 더블 체크
+        if(depth > depth_desire){
           int depth_ball = depth - depth_desire;
           CMotor_B.MoveEncoder_mm(depth_ball); // CMotor_B.input_B 이거 대신 너가 원하는 숫자나 변수 넣으면 그 mm로 움직일거임. (절대좌표) 범위 0~148
           // 이 아래는 볼 스크류 모터 움직이는 부분
           digitalWrite(motorDirB, CMotor_B.dir);
           analogWrite(motorPwmB, CMotor_B.pwm);
-          if(CMotor_B.arrival){//Serial.println("/5/");
-          Serial1.println("/5/"); robot.status = 5; forward = true;}
+          if(CMotor_B.arrival){
+            Serial1.println("/5/"); robot.status = 5;}
+            }
+        else{
+          Serial1.println("/5/"); robot.status = 5;}
         }
       }
-    }
+//====================== 정렬 과정================================
+    else if(robot.status == 29){ // move upper side
+      robot.robot_run(packet, jnt_ang);
+      }
+//======================그리퍼 개폐================================
+    else if(robot.status == 100){ // 열때
+      robot.robot_run(packet, jnt_ang);
+      cservo.grab();  // 얼마나 벌릴지 cservo.target에 넣어주기 default 0
+      cservo.target = 60;  // 열리는것 각도
+      cservo.gripperOpen();
+      }
+//===============================================================
+    else if(robot.status == 101){ // 닫을때 
+    robot.robot_run(packet, jnt_ang);
+    cservo.grab();  // 얼마나 벌릴지 cservo.target에 넣어주기 default 0
+    cservo.target = 60;  // 열리는것 각도
+    cservo.gripperClose();
+      }
+//================================================================
+
     else if(robot.status == end_rob){ //끝났을때
       robot.robot_run(packet, jnt_ang);
       cservo.gripperOpen();
       Last_signal = String(end_rob);
       // Serial.println("status end");
       robot_op = false;
-    }
+      }
     else if(robot.status == BS_back){ // ball screw를 돌려 뒤로 빼는 과정
       robot.robot_run(packet,jnt_ang);
       CMotor_B.MoveEncoder_mm(30); // CMotor_B.input_B 이거 대신 너가 원하는 숫자나 변수 넣으면 그 mm로 움직일거임. (절대좌표) 범위 0~148
       digitalWrite(motorDirB, CMotor_B.dir);
       analogWrite(motorPwmB, CMotor_B.pwm);
       if(CMotor_B.arrival){Serial1.println("/s/");}
-    }
+      }
     else if(robot.status == grabb){ //잡는 상태일 때
-      servo_only_open = false;
       cservo.grab();  // 얼마나 벌릴지 cservo.target에 넣어주기 default 0
       cservo.target = 50; 
       cservo.gripperClose(); // close
       robot.robot_run(packet, jnt_ang);
-      // Serial.println("grabb");
-      // Serial.print("cservo = ");
-      // Serial.println(cservo.isOpen); 
-    }
-    else if(robot.status == shelve1_f||robot.status == shelve2_f){
-      robot.robot_run(packet, jnt_ang);
-      cservo.grab();  // 얼마나 벌릴지 cservo.target에 넣어주기 default 0
-      cservo.target = 50; 
-      cservo.gripperOpen();
-      if(cservo.isOpen)Serial1.println("/s/");
-    }
+      }
     else if(robot.status == read_fail){
       Last_signal = String(read_fail);
       robot.robot_run(packet, jnt_ang);
       robot_op = false;
-    }
+      }
     else{ //보통 구동
       robot.robot_run(packet, jnt_ang);
-    }
+      }
   }  
 }
 

@@ -21,6 +21,7 @@
 #define DXL_ID5   4
 #define DXL_ID6   5
 #define DXL_ID7   6
+
 #define fail_grip 30 // const char형태임
 #define succ_grip 31
 #define end_rob 2
@@ -28,8 +29,10 @@
 #define read_fail 1 // 책을 못읽었을때
 #define bscrew_mode 4 
 #define BS_back 24
-#define shelve1_f 26
-#define shelve2_f 27
+#define shelve1 16
+#define shelve1_f 17
+#define shelve2 19
+#define shelve2_f 20
 
 
 
